@@ -1,0 +1,14 @@
+{
+  "name": "overwatch-map-picker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Overwatch-style map voting and weighted random picker",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
+  }
+}
