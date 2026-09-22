@@ -1,0 +1,16 @@
+const socket=io();const $=id=>document.getElementById(id);let myVote=null,timer=null,state=null;
+function show(id){['home','lobby','vote','result'].forEach(x=>$(x).classList.add('hidden'));$(id).classList.remove('hidden')}
+function error(s){$('error').textContent=s||''}
+$('showJoin').onclick=()=>{$('joinBox').classList.toggle('hidden');$('code').focus()};
+$('create').onclick=()=>{error('');socket.emit('createRoom',{name:$('name').value.trim()||'플레이어'})};
+$('join').onclick=()=>{error('');socket.emit('joinRoom',{code:$('code').value.trim().toUpperCase(),name:$('name').value.trim()||'플레이어'})};
+$('start').onclick=()=>socket.emit('startVote');$('again').onclick=()=>{myVote=null;socket.emit('rematch')};
+$('copy').onclick=async()=>{await navigator.clipboard?.writeText($('codeText').textContent);$('copy').textContent='복사됨!';setTimeout(()=>$('copy').textContent='복사',1200)};
+socket.on('joined',({code})=>{$('roomBadge').textContent='ROOM '+code;$('roomBadge').classList.remove('hidden');$('codeText').textContent=code;show('lobby')});socket.on('errorMessage',error);
+socket.on('state',s=>{state=s;$('count').textContent=s.players.length;if(s.phase==='lobby'){show('lobby');$('players').innerHTML=s.players.map(p=>`<div class="player ${p.id===s.host?'host':''}">${esc(p.name)} ${p.id===s.host?'★':''}</div>`).join('');$('start').classList.toggle('hidden',socket.id!==s.host)}else if(s.phase==='voting'){show('vote');render(s);clock(s.remainingMs)}else{show('result');$('winner').textContent=s.result.map.name;$('winnerMode').textContent=(s.result.map.mode||'무작위 전장')+(s.result.map.side?' · '+s.result.map.side:'');$('reason').innerHTML=reason(s.result.reason);$('again').classList.toggle('hidden',socket.id!==s.host)}});
+function render(s){$('cards').innerHTML=s.candidates.map((m,i)=>card(m,i,s.votes[i]||0)).join('')+`<div class="map-card random-card ${myVote==='random'?'selected':''}" onclick="vote('random')"><div class="map-art"></div><div class="vote-count">${s.votes.random||0}표</div><div class="map-content"><div class="map-mode">SPECIAL</div><div class="map-name">🎲 무작위 전장</div><div class="map-side">후보에 없는 전장 중 추첨</div></div></div>`;$('voteStatus').textContent=myVote===null?'아직 투표하지 않았습니다.':'투표 완료 · 다른 선택으로 변경 가능'}
+function card(m,i,v){return `<div class="map-card ${myVote===i?'selected':''}" onclick="vote(${i})"><div class="map-art"></div><div class="vote-count">${v}표</div><div class="map-content"><div class="map-mode">${esc(m.mode)}</div><div class="map-name">${esc(m.name)}</div><div class="map-side">${m.side?esc(m.side):'전장 후보'}</div></div></div>`}
+function vote(c){myVote=c;socket.emit('vote',c);if(state)render({...state, votes:state.votes})}
+function clock(ms){clearInterval(timer);const end=Date.now()+ms;const tick=()=>{$('timer').textContent=Math.max(0,end-Date.now()).toFixed(1);if(end<=Date.now())clearInterval(timer)};tick();timer=setInterval(tick,50)}
+function reason(r){if(r==='majority')return'득표수 차이가 <b>6표 이상</b> 발생해 다수결로 결정되었습니다.';if(r==='unanimous')return'모든 플레이어의 선택이 같아 <b>즉시 결정</b>되었습니다.';if(r==='none')return'아무도 투표하지 않아 후보 중 <b>무작위</b>로 결정되었습니다.';return'득표수에 비례한 <b>추첨</b>으로 결정되었습니다.'}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
